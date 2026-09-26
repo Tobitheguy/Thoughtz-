@@ -64,6 +64,31 @@ The biggest risks are **legal (news footage copyright, likeness, deepfake labell
 3. **Phase 3: SaaS beta.** "Create your presenter from a prompt → pick niches/sources → approve daily → auto-publish." Charge with credits. Target niche creators, local news outlets, newsletters that want video, and B2B (internal company news, industry digests), which is less crowded than consumer faceless-channel tools.
 4. **Differentiators to market:** consistent cinematic characters, cited and verified news, compliant-by-default labelling, and full autopilot with an approval inbox.
 
+## Appendix: lanshu-create-ai-presenter-video, a closer look
+
+Repo: https://github.com/cclank/lanshu-create-ai-presenter-video (MIT, ~1.2k lines). I read the whole repo.
+
+**What it actually is:** a *playbook*, not an engine. It is a `SKILL.md` for Codex (the same Agent Skills format Claude Code uses), 3 reference docs and 3 small scripts:
+- `init_job.py` creates a job folder plus `job.json` (topic/script, presenter image, aspect, fps, voice, consent flags).
+- `preflight.py` probes the inputs with ffprobe and blocks remote generation until the rights, adult-presenter and upload/voice-clone approvals are recorded.
+- `finalize_delivery.sh` does two-pass loudness normalisation to -16 LUFS, produces master + share H.264 encodes, runs a full-decode check, black-frame detection and a 9-frame contact sheet, and writes a JSON delivery report.
+
+**It has no provider integrations.** It never calls Seedance, MiniMax, TTS or ASR. The agent picks whatever tools are available and records its choices. It does no news sourcing, scheduling or publishing, and has no B-roll search.
+
+**Worth copying into Thoughtz:**
+- A state machine per video: `intake → content_locked → audio_locked → visual_plan_locked → presenter_generated → composition_checked → rendered → verified`. It is resumable and only advances when evidence exists.
+- Audio as the master clock: lock the narration, run ASR against the script, then time the presenter, captions and cuts to the real audio durations.
+- A timeline contract: every clip has an authored start, an authored duration and a source offset. Prefer one continuous presenter take sliced by time over regenerated clips.
+- Cost discipline: a cheap pilot before the full run, a retry ceiling of 3 paid candidates, and task IDs saved so it polls instead of re-paying.
+- A QA checklist (identity drift, late mouth → lip-sync repair on the accepted motion plate, hands away from the face, a settled closed-mouth tail) and the finalizer script as-is.
+
+**What doesn't fit our model:**
+- It is built around *one real photo* and a single talking-head take. Our characters are LoRA-generated and appear in multiple cinematic shots. The input would be a LoRA keyframe per shot, with identity checks against a reference set.
+- Every gate is a human approval (billing, visual review, a HyperFrames Studio preview). For daily autopilot these become automated checks (face-embedding similarity, ASR-vs-script diff, lip-sync score, black-frame and loudness checks) plus a single human "approve today's batch" step.
+- It is a local, single-video CLI workflow. We need a queued, multi-job backend service.
+
+**Conclusion:** use it as the render/QA stage, ported into our pipeline, not as a competitor. The news ingestion, verification, character system, scheduling, publishing and SaaS layer are all ours to build.
+
 ## Sources
 - lanshu-create-ai-presenter-video: https://github.com/cclank/lanshu-create-ai-presenter-video
 - Magica: https://magica.com/pricing · https://theravenstack.com/magica-ai-complete-guide/ · https://medium.com/tanda-ai-art-library/how-magica-is-turning-ai-tools-into-autonomous-creative-pipelines-ddbdbee8f5cf
